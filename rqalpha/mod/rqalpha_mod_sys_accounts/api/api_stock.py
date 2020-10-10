@@ -64,7 +64,7 @@ def _get_account_position_ins(id_or_ins):
     return account, position, ins
 
 
-def _submit_order(ins, amount, side, position_effect, style, auto_switch_order_value):
+def _submit_order(ins, amount, side, position_effect, style, quantity, auto_switch_order_value):
     env = Environment.get_instance()
     if isinstance(style, LimitOrder):
         if style.get_limit_price() <= 0:
@@ -74,9 +74,12 @@ def _submit_order(ins, amount, side, position_effect, style, auto_switch_order_v
         user_system_log.warn(
             _(u"Order Creation Failed: [{order_book_id}] No market data").format(order_book_id=ins.order_book_id))
         return
-    if side == SIDE.BUY:
-        round_lot = int(ins.round_lot)
-        amount = int(Decimal(amount) / Decimal(round_lot)) * round_lot
+    round_lot = int(ins.round_lot)
+
+    if side in [SIDE.BUY, side.SELL]:
+        if not (side == SIDE.SELL and quantity == abs(amount)):
+            amount = int(Decimal(amount) / Decimal(round_lot)) * round_lot
+
     if amount == 0:
         user_system_log.warn(_(u"Order Creation Failed: 0 order quantity"))
         return
@@ -95,9 +98,9 @@ def _submit_order(ins, amount, side, position_effect, style, auto_switch_order_v
         return order
 
 
-def _order_shares(ins, amount, style, auto_switch_order_value):
+def _order_shares(ins, amount, style, quantity, auto_switch_order_value):
     side, position_effect = (SIDE.BUY, POSITION_EFFECT.OPEN) if amount > 0 else (SIDE.SELL, POSITION_EFFECT.CLOSE)
-    return _submit_order(ins, amount, side, position_effect, style, auto_switch_order_value)
+    return _submit_order(ins, amount, side, position_effect, style, quantity, auto_switch_order_value)
 
 
 def _order_value(account, position, ins, cash_amount, style):
@@ -116,8 +119,8 @@ def _order_value(account, position, ins, cash_amount, style):
 
     amount = int(Decimal(cash_amount) / Decimal(price))
 
+    round_lot = int(ins.round_lot)
     if cash_amount > 0:
-        round_lot = int(ins.round_lot)
         amount = int(Decimal(amount) / Decimal(round_lot)) * round_lot
         while amount > 0:
             expected_transaction_cost = env.get_order_transaction_cost(Order.__from_create__(
@@ -133,13 +136,15 @@ def _order_value(account, position, ins, cash_amount, style):
     if amount < 0:
         amount = max(amount, -position.closable)
 
-    return _order_shares(ins, amount, style, auto_switch_order_value=False)
+    return _order_shares(ins, amount, style, position.quantity, auto_switch_order_value=False)
 
 
 @order_shares.register(INST_TYPE_IN_STOCK_ACCOUNT)
 def stock_order_shares(id_or_ins, amount, price=None, style=None):
     auto_switch_order_value = Environment.get_instance().config.mod.sys_accounts.auto_switch_order_value
-    return _order_shares(assure_instrument(id_or_ins), amount, cal_style(price, style), auto_switch_order_value)
+    account, position, ins = _get_account_position_ins(id_or_ins)
+    return _order_shares(assure_instrument(id_or_ins), amount, cal_style(price, style), position.quantity,
+                         auto_switch_order_value)
 
 
 @order_value.register(INST_TYPE_IN_STOCK_ACCOUNT)
@@ -158,7 +163,8 @@ def stock_order_percent(id_or_ins, percent, price=None, style=None):
 def stock_order_target_value(id_or_ins, cash_amount, price=None, style=None):
     account, position, ins = _get_account_position_ins(id_or_ins)
     if cash_amount == 0:
-        return _submit_order(ins, position.closable, SIDE.SELL, POSITION_EFFECT.CLOSE, cal_style(price, style), False)
+        return _submit_order(ins, position.closable, SIDE.SELL, POSITION_EFFECT.CLOSE, cal_style(price, style),
+                             position.quantity, False)
     return _order_value(account, position, ins, cash_amount - position.market_value, cal_style(price, style))
 
 
@@ -166,7 +172,8 @@ def stock_order_target_value(id_or_ins, cash_amount, price=None, style=None):
 def stock_order_target_percent(id_or_ins, percent, price=None, style=None):
     account, position, ins = _get_account_position_ins(id_or_ins)
     if percent == 0:
-        return _submit_order(ins, position.closable, SIDE.SELL, POSITION_EFFECT.CLOSE, cal_style(price, style), False)
+        return _submit_order(ins, position.closable, SIDE.SELL, POSITION_EFFECT.CLOSE, cal_style(price, style),
+                             position.quantity, False)
     else:
         return _order_value(
             account, position, ins, account.total_value * percent - position.market_value, cal_style(price, style)
@@ -206,25 +213,21 @@ def order_lots(id_or_ins, amount, price=None, style=None):
     # type: (Union[str, Instrument], int, Optional[float], Optional[OrderStyle]) -> Optional[Order]
     """
     指定手数发送买/卖单。如有需要落单类型当做一个参量传入，如果忽略掉落单类型，那么默认是市价单（market order）。
-
     :param id_or_ins: 下单标的物
     :param int amount: 下单量, 正数代表买入，负数代表卖出。将会根据一手xx股来向下调整到一手的倍数，比如中国A股就是调整成100股的倍数。
     :param float price: 下单价格，默认为None，表示 :class:`~MarketOrder`, 此参数主要用于简化 `style` 参数。
     :param style: 下单类型, 默认是市价单。目前支持的订单类型有 :class:`~LimitOrder` 和 :class:`~MarketOrder`
-
     :example:
-
     .. code-block:: python
-
         #买入20手的平安银行股票，并且发送市价单：
         order_lots('000001.XSHE', 20)
         #买入10手平安银行股票，并且发送限价单，价格为￥10：
         order_lots('000001.XSHE', 10, style=LimitOrder(10))
-
     """
-    ins = assure_instrument(id_or_ins)
     auto_switch_order_value = Environment.get_instance().config.mod.sys_accounts.auto_switch_order_value
-    return _order_shares(ins, amount * int(ins.round_lot), cal_style(price, style), auto_switch_order_value)
+    account, position, ins = _get_account_position_ins(id_or_ins)
+    return _order_shares(ins, amount * int(ins.round_lot), cal_style(price, style), position.quantity,
+                         auto_switch_order_value)
 
 
 @export_as_api
@@ -239,13 +242,9 @@ def order_target_portfolio(target_portfolio):
     # type: (Dict[Union[str, Instrument], float]) -> List[Order]
     """
     买入/卖出证券以批量调整证券的仓位，以期使其持仓市值占账户总权益的比重达到指定值。
-
     :param target_portfolio: 下单标的物及其目标市值占比的字典
-
     :example:
-
     .. code-block:: python
-
         # 调整仓位，以使平安银行和万科 A 的持仓占比分别达到 10% 和 15%
         order_target_portfolio({
             '000001.XSHE': 0.1
@@ -329,10 +328,8 @@ def is_suspended(order_book_id, count=1):
     # type: (str, Optional[int]) -> Union[bool, pd.DataFrame]
     """
     判断某只股票是否全天停牌。
-
     :param order_book_id: 某只股票的代码或股票代码，可传入单只股票的order_book_id, symbol
     :param count: 回溯获取的数据个数。默认为当前能够获取到的最近的数据
-
     """
     dt = Environment.get_instance().calendar_dt.date()
     order_book_id = assure_order_book_id(order_book_id)
@@ -352,9 +349,7 @@ def is_st_stock(order_book_id, count=1):
     # type: (str, Optional[int]) -> Union[bool, pd.DataFrame]
     """
     判断股票在一段时间内是否为ST股（包括ST与*ST）。
-
     ST股是有退市风险因此风险比较大的股票，很多时候您也会希望判断自己使用的股票是否是'ST'股来避开这些风险大的股票。另外，我们目前的策略比赛也禁止了使用'ST'股。
-
     :param order_book_id: 某只股票的代码，可传入单只股票的order_book_id, symbol
     :param count: 回溯获取的数据个数。默认为当前能够获取到的最近的数据
     """
@@ -378,11 +373,8 @@ def industry(code):
     # type: (str) -> List[str]
     """
     获得属于某一行业的所有股票列表。
-
     :param code: 行业名称或行业代码。例如，农业可填写industry_code.A01 或 'A01'
-
     我们目前使用的行业分类来自于中国国家统计局的 `国民经济行业分类 <http://www.stats.gov.cn/tjsj/tjbz/hyflbz/>`_ ，可以使用这里的任何一个行业代码来调用行业的股票列表：
-
     =========================   ===================================================
     行业代码                      行业名称
     =========================   ===================================================
@@ -477,18 +469,13 @@ def industry(code):
     R89                         娱乐业
     S90                         综合
     =========================   ===================================================
-
     :example:
-
     ..  code-block:: python3
         :linenos:
-
         def init(context):
             stock_list = industry('A01')
             logger.info("农业股票列表：" + str(stock_list))
-
         #INITINFO 农业股票列表：['600354.XSHG', '601118.XSHG', '002772.XSHE', '600371.XSHG', '600313.XSHG', '600672.XSHG', '600359.XSHG', '300143.XSHE', '002041.XSHE', '600762.XSHG', '600540.XSHG', '300189.XSHE', '600108.XSHG', '300087.XSHE', '600598.XSHG', '000998.XSHE', '600506.XSHG']
-
     """
     if isinstance(code, IndustryCodeItem):
         code = code.code
@@ -513,11 +500,8 @@ def sector(code):
     # type: (str) -> List[str]
     """
     获得属于某一板块的所有股票列表。
-
     :param code: 板块名称或板块代码。例如，能源板块可填写'Energy'、'能源'或sector_code.Energy
-
     目前支持的板块分类如下，其取值参考自MSCI发布的全球行业标准分类:
-
     =========================   =========================   ==============================================================================
     板块代码                      中文板块名称                  英文板块名称
     =========================   =========================   ==============================================================================
@@ -532,12 +516,9 @@ def sector(code):
     Utilities                   公共服务                      utilities
     Industrials                 工业                         industrials
     =========================   =========================   ==============================================================================
-
     :example:
-
     ..  code-block:: python3
         :linenos:
-
         def init(context):
             ids1 = sector("consumer discretionary")
             ids2 = sector("非必需消费品")
@@ -565,10 +546,8 @@ def get_dividend(order_book_id, start_date):
     # type: (str, Union[str, datetime.date, datetime.datetime, pd.Timestamp]) -> Optional[np.ndarray]
     """
     获取某只股票到策略当前日期前一天的分红情况（包含起止日期）。
-
     :param order_book_id: 股票代码
     :param start_date: 开始日期，需要早于策略当前日期
-
     =========================   ===================================================
     fields                      字段名
     =========================   ===================================================
@@ -579,14 +558,10 @@ def get_dividend(order_book_id, start_date):
     payable_date                分红到帐日
     round_lot                   分红最小单位
     =========================   ===================================================
-
     :example:
-
     获取平安银行2013-01-04 到策略当前日期前一天的分红数据:
-
     ..  code-block:: python3
         :linenos:
-
         get_dividend('000001.XSHE', start_date='20130104')
         #[Out]
         #array([(20130614, 20130619, 20130620, 20130620,  1.7 , 10),
@@ -594,7 +569,6 @@ def get_dividend(order_book_id, start_date):
         #       (20150407, 20150410, 20150413, 20150413,  1.74, 10),
         #       (20160608, 20160615, 20160616, 20160616,  1.53, 10)],
         #      dtype=[('announcement_date', '<u4'), ('book_closure_date', '<u4'), ('ex_dividend_date', '<u4'), ('payable_date', '<u4'), ('dividend_cash_before_tax', '<f8'), ('round_lot', '<u4')])
-
     """
     # adjusted 参数在不复权数据回测时不再提供
     env = Environment.get_instance()
