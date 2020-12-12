@@ -18,6 +18,7 @@ jobs:
         make
         sudo make install
         cd ..
+        pwd
 
         # Install Test Deps
         pip install -U pip
@@ -26,8 +27,8 @@ jobs:
         pip install coveralls
         pip install -U setuptools
         pip install ipython==5.3.0
-        pwd
-        pip install --prefer-binary ../../
+        cd ../../../
+        pip install --prefer-binary .
     - name: run test
       run:
         ls -al $HOME/.rqalpha/
