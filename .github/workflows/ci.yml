@@ -30,7 +30,7 @@ jobs:
           pip install ipython==5.3.0
           pip install --prefer-binary .
     - name: run test
-      run:
+      run: |
         ls -al $HOME/.rqalpha/
         ls -al $HOME/.rqalpha/bundle/
         rqalpha download-bundle
