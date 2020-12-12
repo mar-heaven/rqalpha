@@ -31,8 +31,6 @@ jobs:
           pip install --prefer-binary .
     - name: run test
       run: |
-        ls -al $HOME/.rqalpha/
-        ls -al $HOME/.rqalpha/bundle/
         rqalpha download-bundle
         coverage run --source=rqalpha test.py
     - name: Cache bundle
