@@ -29,10 +29,8 @@ jobs:
           pip install -U setuptools
           pip install ipython==5.3.0
           pip install --prefer-binary .
-    - name: run test
-      run: |
-        rqalpha download-bundle
-        coverage run --source=rqalpha test.py
+          rqalpha download-bundle
+          coverage run --source=rqalpha test.py
     - name: Cache bundle
       uses: actions/cache@v2
       with:
