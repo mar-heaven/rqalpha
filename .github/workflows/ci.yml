@@ -19,13 +19,14 @@ jobs:
         sudo make install
         cd ..
         pwd
+        ls
 
         # Install Test Deps
-        # pip install -U pip
+        pip install -U pip
         # pip install "numpy>=1.15.4"
         # pip install TA-Lib
         # pip install coveralls
-        # pip install -U setuptools
+        pip install -U setuptools
         # pip install ipython==5.3.0
         cd ../
         pwd
