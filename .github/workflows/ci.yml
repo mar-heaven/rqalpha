@@ -2,7 +2,7 @@ name: Rqalpha test
 on: [push, pull_request]
 
 jobs:
-  run-test:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -15,6 +15,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Install TA-Lib
           wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
@@ -24,7 +26,6 @@ jobs:
           make
           sudo make install
           cd ..
-
         # Install Test Deps
           pip install -U pip
           pip install "numpy>=1.15.4"
@@ -35,18 +36,11 @@ jobs:
           pip install --prefer-binary .
           rqalpha download-bundle
           coverage run --source=rqalpha test.py
+          coveralls
     - name: Cache bundle
       uses: actions/cache@v2
       with:
         path: |
           $HOME/.cache/pip
           $HOME/.rqalpha/bundle
-  finish:
-    needs: run-test
-    runs-on: ubuntu-latest
-    steps:
-    - name: Coveralls Finished
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.github_token }}
-        parallel-finished: true
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
