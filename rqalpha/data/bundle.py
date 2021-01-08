@@ -26,6 +26,7 @@ from rqalpha.utils.concurrent import (ProgressedProcessPoolExecutor,
                                       ProgressedTask)
 from rqalpha.utils.datetime_func import (convert_date_to_date_int,
                                          convert_date_to_int)
+from rqdatac.share.errors import PermissionDenied
 
 START_DATE = 20050104
 END_DATE = 29991231
@@ -297,8 +298,11 @@ class GenerateDayBarTask(DayBarTask):
             i, step = 0, 300
             while True:
                 order_book_ids = self._order_book_ids[i:i + step]
-                df = rqdatac.get_price(order_book_ids, START_DATE, datetime.date.today(), '1d',
-                                       adjust_type='none', fields=fields, expect_df=True)
+                try:
+                    df = rqdatac.get_price(order_book_ids, START_DATE, datetime.date.today(), '1d', adjust_type='none',
+                                           fields=fields, expect_df=True)
+                except PermissionDenied:
+                    break
                 if not (df is None or df.empty):
                     df.reset_index(inplace=True)
                     df['datetime'] = [convert_date_to_int(d) for d in df['date']]
@@ -337,14 +341,15 @@ class UpdateDayBarTask(DayBarTask):
                 for order_book_id in self._order_book_ids:
                     if order_book_id in h5:
                         try:
-                            start_date = rqdatac.get_next_trading_date(int(h5[order_book_id]['datetime'][-1] // 1000000))
+                            start_date = rqdatac.get_next_trading_date(
+                                int(h5[order_book_id]['datetime'][-1] // 1000000))
                         except ValueError:
                             h5.pop(order_book_id)
                             start_date = START_DATE
                     else:
                         start_date = START_DATE
                     df = rqdatac.get_price(order_book_id, start_date, END_DATE, '1d',
-                                        adjust_type='none', fields=fields, expect_df=True)
+                                           adjust_type='none', fields=fields, expect_df=True)
                     if not (df is None or df.empty):
                         df = df[fields]  # Future order_book_id like SC888 will auto add 'dominant_id'
                         df = df.loc[order_book_id]
