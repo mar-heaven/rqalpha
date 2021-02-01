@@ -87,7 +87,7 @@ class Order(object):
         self._position_effect = POSITION_EFFECT[d["position_effect"]] if d["position_effect"] else None
         self._message = d['message']
         self._filled_quantity = d['filled_quantity']
-        self._status = ORDER_STATUS[d["order_status"]]
+        self._status = ORDER_STATUS[d["status"]]
         self._frozen_price = d['frozen_price']
         self._type = ORDER_TYPE[d["type"]]
         self._transaction_cost = d['transaction_cost']
@@ -289,11 +289,11 @@ class Order(object):
         assert self.filled_quantity + quantity <= self.quantity
         new_quantity = self._filled_quantity + quantity
         self._transaction_cost += trade.commission + trade.tax
+        if trade.position_effect != POSITION_EFFECT.MATCH:
+            self._avg_price = (self._avg_price * self._filled_quantity + trade.last_price * quantity) / new_quantity
         self._filled_quantity = new_quantity
         if self.unfilled_quantity == 0:
             self._status = ORDER_STATUS.FILLED
-        if trade.position_effect != POSITION_EFFECT.MATCH:
-            self._avg_price = (self._avg_price * self._filled_quantity + trade.last_price * quantity) / new_quantity
 
     def mark_rejected(self, reject_reason):
         if not self.is_final():

@@ -1,3 +1,12 @@
+---
+name: Bug 反馈
+about: 有一个bug需要解决
+title: 发现一枚bug
+labels: bug
+assignees: Cuizi7
+
+---
+
 # 提 ISSUE 须知
 
 请先阅读文档 [rqalpha文档](http://rqalpha.readthedocs.io/)
@@ -15,3 +24,4 @@
 ## 4. 您出现问题对应的源码/或者能复现问题的简易代码 以及对应的配置
 
 ## 5. 您出现的错误堆栈日志信息
+
