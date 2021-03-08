@@ -2,7 +2,7 @@ name: Rqalpha test
 on: [push, pull_request]
 
 jobs:
-  run-test:
+  test:
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
