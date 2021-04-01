@@ -202,6 +202,7 @@ class Account:
         """
         return sum(p.transaction_cost for p in self._iter_pos())
 
+
     @property
     def margin(self):
         # type: () -> float
