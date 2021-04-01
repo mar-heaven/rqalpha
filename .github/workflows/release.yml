@@ -14,7 +14,9 @@ jobs:
           python-version: 3.7
       - name: Install pypa/build
         run: >-
+          echo ${{ github.ref }}
           python setup.py sdist
+
       - name: Publish distribution 📦 to Test PyPI
         if: startsWith(github.ref, 'release/tags')
         uses: pypa/gh-action-pypi-publish@master
