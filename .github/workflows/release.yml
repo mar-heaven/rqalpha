@@ -20,11 +20,11 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: 3.7
-    - name: Install pypa/build
-      run: >-
-        python setup.py sdist
-    - name: Publish distribution 📦 to PyPI
-      if: startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Install pypa/build
+        run: >-
+          python setup.py sdist
+      - name: Publish distribution 📦 to PyPI
+        if: startsWith(github.ref, 'refs/tags')
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
