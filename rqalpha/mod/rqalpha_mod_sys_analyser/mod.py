@@ -34,7 +34,7 @@ from rqalpha.interface import AbstractMod, AbstractPosition
 from rqalpha.utils.i18n import gettext as _
 from rqalpha.utils import INST_TYPE_IN_STOCK_ACCOUNT
 from rqalpha.utils.logger import user_system_log
-from rqalpha.const import DAYS_CNT
+from rqalpha.const import DAYS_CNT, SIDE
 from rqalpha.api import export_as_api
 
 from .plot_store import PlotStore
@@ -337,6 +337,23 @@ class AnalyserMod(AbstractMod):
             'trades': trades,
             'portfolio': total_portfolios,
         }
+
+        # draw trade signal
+        if self._trades:
+            trade_buy_dates = set()
+            trade_sell_dates = set()
+            trade_dates = set()
+            for trade in self._trades:
+                date = datetime.datetime.strptime(trade['datetime'], '%Y-%m-%d %H:%M:%S').date()
+                date = pd.Timestamp(date)
+                trade_dates.add(date)
+                if trade['side'] == SIDE.BUY:
+                    trade_buy_dates.add(date)
+                else:
+                    trade_sell_dates.add(date)
+            result_dict["trade_dates"] = trade_dates
+            result_dict["trade_buy_dates"] = trade_buy_dates
+            result_dict["trade_sell_dates"] = trade_sell_dates
 
         if self._benchmark:
             df = pd.DataFrame(self._total_benchmark_portfolios)

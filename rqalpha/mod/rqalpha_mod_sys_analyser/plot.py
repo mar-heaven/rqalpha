@@ -53,15 +53,15 @@ def plot_result(result_dict, show_windows=True, savefile=None):
 
     rcParams['font.family'] = 'sans-serif'
     rcParams['font.sans-serif'] = [
-        u'Microsoft Yahei',
-        u'Heiti SC',
-        u'Heiti TC',
-        u'STHeiti',
-        u'WenQuanYi Zen Hei',
-        u'WenQuanYi Micro Hei',
-        u"文泉驿微米黑",
-        u'SimHei',
-    ] + rcParams['font.sans-serif']
+                                      u'Microsoft Yahei',
+                                      u'Heiti SC',
+                                      u'Heiti TC',
+                                      u'STHeiti',
+                                      u'WenQuanYi Zen Hei',
+                                      u'WenQuanYi Micro Hei',
+                                      u"文泉驿微米黑",
+                                      u'SimHei',
+                                  ] + rcParams['font.sans-serif']
     rcParams['axes.unicode_minus'] = False
 
     use_chinese_fonts = True
@@ -126,22 +126,32 @@ def plot_result(result_dict, show_windows=True, savefile=None):
 
     fig_data = [
         (0.00, label_height, value_height, _(u"Total Returns"), "{0:.3%}".format(summary["total_returns"]), red, black),
-        (0.15, label_height, value_height, _(u"Annual Returns"), "{0:.3%}".format(summary["annualized_returns"]), red, black),
-        (0.00, label_height2, value_height2, _(u"Benchmark Returns"), "{0:.3%}".format(summary.get("benchmark_total_returns", 0)), blue,
+        (0.15, label_height, value_height, _(u"Annual Returns"), "{0:.3%}".format(summary["annualized_returns"]), red,
          black),
-        (0.15, label_height2, value_height2, _(u"Benchmark Annual"), "{0:.3%}".format(summary.get("benchmark_annualized_returns", 0)),
+        (0.00, label_height2, value_height2, _(u"Benchmark Returns"),
+         "{0:.3%}".format(summary.get("benchmark_total_returns", 0)), blue,
+         black),
+        (0.15, label_height2, value_height2, _(u"Benchmark Annual"),
+         "{0:.3%}".format(summary.get("benchmark_annualized_returns", 0)),
          blue, black),
 
         (0.30, label_height, value_height, _(u"Alpha"), "{0:.4}".format(summary["alpha"]), black, black),
         (0.40, label_height, value_height, _(u"Beta"), "{0:.4}".format(summary["beta"]), black, black),
         (0.55, label_height, value_height, _(u"Sharpe"), "{0:.4}".format(summary["sharpe"]), black, black),
         (0.70, label_height, value_height, _(u"Sortino"), "{0:.4}".format(summary["sortino"]), black, black),
-        (0.85, label_height, value_height, _(u"Information Ratio"), "{0:.4}".format(summary["information_ratio"]), black, black),
+        (
+            0.85, label_height, value_height, _(u"Information Ratio"), "{0:.4}".format(summary["information_ratio"]),
+            black,
+            black),
 
         (0.30, label_height2, value_height2, _(u"Volatility"), "{0:.4}".format(summary["volatility"]), black, black),
-        (0.40, label_height2, value_height2, _(u"MaxDrawdown"), "{0:.3%}".format(summary["max_drawdown"]), black, black),
-        (0.55, label_height2, value_height2, _(u"Tracking Error"), "{0:.4}".format(summary["tracking_error"]), black, black),
-        (0.70, label_height2, value_height2, _(u"Downside Risk"), "{0:.4}".format(summary["downside_risk"]), black, black),
+        (
+            0.40, label_height2, value_height2, _(u"MaxDrawdown"), "{0:.3%}".format(summary["max_drawdown"]), black,
+            black),
+        (0.55, label_height2, value_height2, _(u"Tracking Error"), "{0:.4}".format(summary["tracking_error"]), black,
+         black),
+        (0.70, label_height2, value_height2, _(u"Downside Risk"), "{0:.4}".format(summary["downside_risk"]), black,
+         black),
     ]
 
     ax = plt.subplot(gs[:3, :-1])
@@ -174,6 +184,21 @@ def plot_result(result_dict, show_windows=True, savefile=None):
             [rt[max_ddd_start_day] - 1.0, rt[max_ddd_end_day] - 1.0], 'D', color='Blue', markersize=8, alpha=.7,
             label=_(u"MaxDDD"))
 
+    # trade_signal
+    if "trade_buy_dates" or "trade_sell_dates" in result_dict:
+        trade_buy_dates = list(result_dict["trade_buy_dates"])
+        trade_sell_dates = list(result_dict["trade_sell_dates"])
+        trade_buy_dates.sort()
+        trade_sell_dates.sort()
+        if trade_buy_dates:
+            ax.plot(trade_buy_dates,
+                    [rt[list(index).index(dt)] - 1.0 for dt in trade_buy_dates],
+                    'v', color='Yellow', markersize=8, alpha=.7, label=_(u"买入信号"))
+        if trade_sell_dates:
+            ax.plot(trade_sell_dates,
+                    [rt[list(index).index(dt)] - 1.0 for dt in trade_sell_dates],
+                    '^', color='Black', markersize=8, alpha=.7, label=_(u"卖出信号"))
+
     # place legend
     leg = plt.legend(loc="best")
     leg.get_frame().set_alpha(0.5)
@@ -189,7 +214,6 @@ def plot_result(result_dict, show_windows=True, savefile=None):
         ax2 = plt.subplot(gs[11:, :])
         for column in plots_df.columns:
             ax2.plot(plots_df[column], label=column)
-
         leg = plt.legend(loc="best")
         leg.get_frame().set_alpha(0.5)
 
