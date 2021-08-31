@@ -75,7 +75,7 @@ def create_base_scope(forbidden_modules):
     if forbidden_modules:
         def user_importer(name, globals=None, locals=None, fromlist=(), level=0):
             if name in forbidden_modules:
-                raise ImportError(f"module {name} is restricted")
+                raise ImportError("module {} is restricted".format(name))
             return importlib.__import__(name, globals, locals, fromlist, level)
         scope["__builtins__"]["__import__"] = user_importer
     return scope
