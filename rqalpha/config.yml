@@ -54,12 +54,3 @@ extra:
   is_hold: false
   locale: zh_Hans_CN
   logger: []
-  forbidden_modules:
-    - os
-    - commands
-    - subprocess
-    - timeit
-    - platform
-    - pty
-    - bdb
-    - cgi

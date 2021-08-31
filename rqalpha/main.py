@@ -65,19 +65,18 @@ def _adjust_start_date(config, data_proxy):
     config.base.end_date = config.base.trading_calendar[-1].date()
 
 
-def create_base_scope(forbidden_modules):
+def create_base_scope():
     from . import user_module
     from copy import copy
 
     import importlib
-
+    forbidden_modules = ['os', 'commands', 'subprocess', 'timeit', 'platform', 'pty', 'bdb', 'cgi']
     scope = copy(user_module.__dict__)
-    if forbidden_modules:
-        def user_importer(name, globals=None, locals=None, fromlist=(), level=0):
-            if name in forbidden_modules:
-                raise ImportError("module {} is restricted".format(name))
-            return importlib.__import__(name, globals, locals, fromlist, level)
-        scope["__builtins__"]["__import__"] = user_importer
+    def user_importer(name, globals=None, locals=None, fromlist=(), level=0):
+        if name in forbidden_modules:
+            raise ImportError("module {} is restricted".format(name))
+        return importlib.__import__(name, globals, locals, fromlist, level)
+    scope["__builtins__"]["__import__"] = user_importer
     return scope
 
 
@@ -177,7 +176,7 @@ def run(config, source_code=None, user_funcs=None):
 
         env.event_bus.publish_event(Event(EVENT.POST_SYSTEM_INIT))
 
-        scope = create_base_scope(config.extra.forbidden_modules)
+        scope = create_base_scope()
         scope.update({"g": env.global_vars})
         scope.update(get_strategy_apis())
         scope = env.strategy_loader.load(scope)
