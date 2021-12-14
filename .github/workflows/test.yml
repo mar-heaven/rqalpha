@@ -14,6 +14,7 @@ jobs:
     - name: Cache bundle
       # cache will change when runner.os or requirements.txt changed
       uses: actions/cache@v2
+      id: cache
       with:
         path: |
           $HOME/.cache/pip
